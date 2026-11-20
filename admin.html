@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>صندوق خصوصی نامه‌ها</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="postbox">
+    <header>
+      <p class="eyebrow">PRIVATE LETTERBOX</p>
+      <h1>صندوق نامه‌های من</h1>
+      <p>نامه‌هایی که برایت فرستاده‌اند ♡</p>
+    </header>
+
+    <section class="letter-card">
+      <form id="loginForm">
+        <label for="email">ایمیل مدیر</label>
+        <input id="email" type="email" required>
+
+        <label for="password">رمز عبور</label>
+        <input id="password" type="password" required>
+
+        <button type="submit">ورود به صندوق</button>
+      </form>
+
+      <p id="status" role="status"></p>
+      <div id="letters"></div>
+      <button id="logout" type="button" hidden>خروج از حساب</button>
+    </section>
+  </main>
+
+  <script type="module" src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js';
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+const loginForm = document.getElementById('loginForm');
+const status = document.getElementById('status');
+const lettersBox = document.getElementById('letters');
+const logoutButton = document.getElementById('logout');
+
+async function loadLetters() {
+  status.textContent = 'در حال دریافت نامه‌ها...';
+
+  const { data, error } = await supabase
+    .from('letters')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    status.textContent = 'دریافت نامه‌ها ناموفق بود.';
+    console.error(error);
+    return;
+  }
+
+  status.textContent = data.length
+    ? `${data.length} نامه در صندوق داری ♡`
+    : 'هنوز نامه‌ای نرسیده است.';
+
+  lettersBox.replaceChildren();
+
+  data.forEach((letter) => {
+    const card = document.createElement('article');
+    card.style.cssText = 'background:#fff;border:1px solid #eadbd4;border-radius:12px;padding:16px;margin-top:14px;white-space:pre-wrap;text-align:right;';
+
+    const sender = document.createElement('strong');
+    sender.textContent = letter.sender || 'ناشناس';
+
+    const message = document.createElement('p');
+    message.textContent = letter.message || '';
+
+    const date = document.createElement('small');
+    date.textContent = letter.created_at
+      ? new Date(letter.created_at).toLocaleString('fa-IR')
+      : '';
+
+    card.append(sender, message, date);
+    lettersBox.append(card);
+  });
+}
+
+loginForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  status.textContent = 'در حال ورود...';
+
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    status.textContent = 'ایمیل یا رمز عبور درست نیست.';
+    console.error(error);
+    return;
+  }
+
+  loginForm.hidden = true;
+  logoutButton.hidden = false;
+  await loadLetters();
+});
+
+logoutButton.addEventListener('click', async () => {
+  await supabase.auth.signOut();
+  loginForm.hidden = false;
+  logoutButton.hidden = true;
+  lettersBox.replaceChildren();
+  status.textContent = 'از حساب خارج شدی.';
+});
+
+supabase.auth.onAuthStateChange((event, session) => {
+  if (session && event === 'SIGNED_IN') {
+    loginForm.hidden = true;
+    logoutButton.hidden = false;
+    loadLetters();
+  }
+});

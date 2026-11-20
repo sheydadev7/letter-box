@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f8eee9">
+  <title>صندوق نامه‌های کوچک</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="postbox">
+    <header>
+      <p class="eyebrow">A LITTLE PLACE FOR YOUR WORDS</p>
+      <h1>صندوق نامه‌های کوچک</h1>
+      <p>گاهی چند کلمه، تمام چیزی‌ست که لازم داریم.</p>
+    </header>
+
+    <section class="letter-card">
+      <h2>نامه‌ای برای من بنویس...</h2>
+      <form id="letterForm">
+        <label for="sender">اسمت (اختیاری)</label>
+        <input id="sender" name="sender" maxlength="50" placeholder="دوست ناشناس...">
+
+        <label for="message">نامه‌ات</label>
+        <textarea id="message" name="message" rows="8" maxlength="5000" required placeholder="هر چیزی که دوست داری اینجا بنویس..."></textarea>
+
+        <button type="submit">فرستادن نامه ♡</button>
+      </form>
+      <p id="status" role="status"></p>
+    </section>
+
+    <footer>با مهر، در گوشه‌ای کوچک از اینترنت ♡</footer>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
