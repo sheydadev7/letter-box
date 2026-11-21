@@ -33,7 +33,7 @@ async function loadLetters() {
     card.style.cssText = 'background:#fff;border:1px solid #eadbd4;border-radius:12px;padding:16px;margin-top:14px;white-space:pre-wrap;text-align:right;';
 
     const sender = document.createElement('strong');
-    sender.textContent = letter.sender || 'ناشناس';
+    sender.textContent = letter.name || 'ناشناس';
 
     const message = document.createElement('p');
     message.textContent = letter.message || '';
