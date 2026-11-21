@@ -416,8 +416,9 @@ form.addEventListener('submit', async e => {
       'نامه‌ات با موفقیت به صندوق اصلی رسید.<br>ممنون که تکه‌ای از دنیایت را اینجا گذاشتی.';
 
   } catch (error) {
-    console.error(error);
-    alert('ارسال نامه ناموفق بود. لطفاً دوباره امتحان کن.');
+  console.error(error);
+  alert('خطا: ' + error.message);
+  }
   } finally {
     sendButton.disabled = false;
     sendButton.textContent = 'مهر کن و نامه را بفرست ♡';
