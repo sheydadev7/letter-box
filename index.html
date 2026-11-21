@@ -134,102 +134,8 @@ canvas{width:100%;height:250px;display:block;background:#fffdf8;border:1px solid
   <button class="inbox-toggle" id="inboxToggle">دیدن نامه‌های این مرورگر</button>
   <section class="inbox" id="inbox"><h3>نامه‌های رسیده</h3><div id="letters"></div></section>
 </main>
-<script>
-const $=id=>document.getElementById(id);
-const form=$('letterForm'),message=$('message'),count=$('count'),card=$('formCard'),stage=$('stage');
-const STORAGE_KEY='dearSheydaCoralineDemo';
-function words(t){return t.trim()?t.trim().split(/\s+/).length:0}
-message.addEventListener('input',()=>{let n=words(message.value);count.textContent=n+' / ۱۰۰۰ کلمه';count.style.color=n>1000?'#b34f65':''});
 
-$('openEnvelope').addEventListener('click',()=>{
-  const btn=$('openEnvelope');
-  if(btn.classList.contains('open'))return;
-  btn.classList.add('open');$('openHint').textContent='✧ یک نامه منتظر توست ✧';
-  setTimeout(()=>{stage.style.display='none';card.classList.add('show');card.scrollIntoView({behavior:'smooth',block:'start'});},1050);
-});
-
-const canvas=$('drawingCanvas'),ctx=canvas.getContext('2d'),color=$('penColor');
-let drawing=false,hasDrawing=false,erasing=false,last=null,undoStack=[];
-const brush=$('brushSize');
-function saveUndo(){
-  if(undoStack.length>15)undoStack.shift();
-  undoStack.push(ctx.getImageData(0,0,canvas.width,canvas.height));
-}
-function resizeCanvas(){
-  const snap=hasDrawing?canvas.toDataURL():null,rect=canvas.getBoundingClientRect(),ratio=window.devicePixelRatio||1;
-  canvas.width=Math.round(rect.width*ratio);canvas.height=Math.round(250*ratio);
-  ctx.setTransform(ratio,0,0,ratio,0,0);ctx.lineCap='round';ctx.lineJoin='round';
-  if(snap){const img=new Image();img.onload=()=>ctx.drawImage(img,0,0,rect.width,250);img.src=snap}
-}
-resizeCanvas();window.addEventListener('resize',resizeCanvas);
-function point(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
-canvas.addEventListener('pointerdown',e=>{
-  e.preventDefault();drawing=true;last=point(e);saveUndo();canvas.setPointerCapture(e.pointerId);
-  ctx.fillStyle=erasing?'#fffdf8':color.value;ctx.beginPath();ctx.arc(last.x,last.y,(erasing?Math.max(brush.value*2,16):Number(brush.value))/2,0,Math.PI*2);ctx.fill();hasDrawing=true;
-});
-canvas.addEventListener('pointermove',e=>{
-  if(!drawing)return;e.preventDefault();
-  const events=e.getCoalescedEvents?e.getCoalescedEvents():[e];
-  for(const ev of events){
-    const p=point(ev);ctx.strokeStyle=erasing?'#fffdf8':color.value;
-    ctx.lineWidth=erasing?Math.max(Number(brush.value)*3,20):Number(brush.value);
-    ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;
-  }
-  hasDrawing=true;
-});
-function stop(){drawing=false;last=null}
-canvas.addEventListener('pointerup',stop);canvas.addEventListener('pointercancel',stop);
-brush.addEventListener('input',()=>{$('brushValue').textContent=brush.value+' پیکسل'});
-$('penTool').onclick=()=>{erasing=false};
-$('eraserTool').onclick=()=>{erasing=true};
-$('undoCanvas').onclick=()=>{
-  if(!undoStack.length)return;
-  ctx.putImageData(undoStack.pop(),0,0);
-  hasDrawing=undoStack.length>0||!isCanvasBlank();
-};
-function isCanvasBlank(){
-  const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;
-  for(let i=3;i<pixels.length;i+=4)if(pixels[i]!==0)return false;
-  return true;
-}
-$('clearCanvas').onclick=()=>{saveUndo();ctx.clearRect(0,0,canvas.width,canvas.height);hasDrawing=false};
-document.querySelectorAll('.color-dot').forEach(btn=>btn.addEventListener('click',()=>{color.value=btn.dataset.color;erasing=false}));
-form.addEventListener('submit',e=>{
-  e.preventDefault();const n=words(message.value);if(n>1000){alert('لطفاً نامه‌ات را کوتاه‌تر از ۱۰۰۰ کلمه نگه دار.');return}
-  const sentAt = new Date();
-  const entry={
-    name:$('sender').value.trim(),
-    message:message.value.trim(),
-    drawing:hasDrawing?canvas.toDataURL('image/png'):'',
-    sentAt:sentAt.toISOString(),
-    wordCount:n,
-    reference:'LP-'+sentAt.getTime().toString(36).toUpperCase()
-  };
-  const data=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');data.unshift(entry);localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
-  $('formView').style.display='none';$('successView').style.display='block';
-});
-$('writeAgain').onclick=()=>{form.reset();count.textContent='۰ / ۱۰۰۰ کلمه';ctx.clearRect(0,0,canvas.width,canvas.height);hasDrawing=false;erasing=false;undoStack=[];$('successView').style.display='none';$('formView').style.display='block'};
-$('inboxToggle').onclick=()=>{
- const data=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'),box=$('letters');box.replaceChildren();
- if(!data.length){const p=document.createElement('p');p.textContent='هنوز نامه‌ای نیست. اولین نامه را تو بفرست.';box.append(p)}
- data.forEach(item=>{
-   const a=document.createElement('article');a.className='letter';
-   const s=document.createElement('strong');s.textContent=item.name;
-   const t=document.createElement('time');
-   const sentDate=item.sentAt?new Date(item.sentAt):new Date(item.date);
-   t.textContent=Number.isNaN(sentDate.getTime())?'تاریخ نامشخص':new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short'}).format(sentDate);
-   const meta=document.createElement('div');meta.style.cssText='font:10px "Special Elite",monospace;color:#9a887b;margin-top:7px;letter-spacing:.3px';
-   const ref=item.reference||'Earlier demo letter';
-   const count=item.wordCount??(item.message.trim()?item.message.trim().split(/\s+/).length:0);
-   meta.textContent='ارسال‌شده · '+count+' کلمه · '+ref;
-   const p=document.createElement('p');p.textContent=item.message;
-   a.append(s,t,meta,p);
-   if(item.drawing){const img=document.createElement('img');img.src=item.drawing;img.alt='نقاشی پیوست‌شده';a.append(img)}
-   box.append(a)
- });
- $('inbox').style.display=$('inbox').style.display==='block'?'none':'block';
-};
-
+<script type="module">
 import {
   SUPABASE_URL,
   SUPABASE_PUBLISHABLE_KEY
@@ -265,10 +171,14 @@ $('openEnvelope').addEventListener('click', () => {
   setTimeout(() => {
     stage.style.display = 'none';
     card.classList.add('show');
-    card.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    });
+
+    setTimeout(() => {
+      resizeCanvas();
+      card.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }, 100);
   }, 1050);
 });
 
@@ -286,14 +196,19 @@ let undoStack = [];
 
 function saveUndo() {
   if (undoStack.length > 15) undoStack.shift();
-  undoStack.push(
-    ctx.getImageData(0, 0, canvas.width, canvas.height)
-  );
+
+  if (canvas.width && canvas.height) {
+    undoStack.push(
+      ctx.getImageData(0, 0, canvas.width, canvas.height)
+    );
+  }
 }
 
 function resizeCanvas() {
-  const snap = hasDrawing ? canvas.toDataURL() : null;
   const rect = canvas.getBoundingClientRect();
+  if (!rect.width) return;
+
+  const snap = hasDrawing ? canvas.toDataURL() : null;
   const ratio = window.devicePixelRatio || 1;
 
   canvas.width = Math.round(rect.width * ratio);
@@ -305,16 +220,18 @@ function resizeCanvas() {
 
   if (snap) {
     const img = new Image();
-    img.onload = () => ctx.drawImage(img, 0, 0, rect.width, 250);
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, rect.width, 250);
+    };
     img.src = snap;
   }
 }
 
-resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
 function point(e) {
   const r = canvas.getBoundingClientRect();
+
   return {
     x: e.clientX - r.left,
     y: e.clientY - r.top
@@ -323,26 +240,33 @@ function point(e) {
 
 canvas.addEventListener('pointerdown', e => {
   e.preventDefault();
+
   drawing = true;
   last = point(e);
   saveUndo();
+
   canvas.setPointerCapture(e.pointerId);
 
   ctx.fillStyle = erasing ? '#fffdf8' : color.value;
   ctx.beginPath();
+
   ctx.arc(
     last.x,
     last.y,
-    (erasing ? Math.max(brush.value * 2, 16) : Number(brush.value)) / 2,
+    (erasing
+      ? Math.max(Number(brush.value) * 2, 16)
+      : Number(brush.value)) / 2,
     0,
     Math.PI * 2
   );
+
   ctx.fill();
   hasDrawing = true;
 });
 
 canvas.addEventListener('pointermove', e => {
   if (!drawing) return;
+
   e.preventDefault();
 
   const events = e.getCoalescedEvents
@@ -351,6 +275,7 @@ canvas.addEventListener('pointermove', e => {
 
   for (const ev of events) {
     const p = point(ev);
+
     ctx.strokeStyle = erasing ? '#fffdf8' : color.value;
     ctx.lineWidth = erasing
       ? Math.max(Number(brush.value) * 3, 20)
@@ -360,19 +285,20 @@ canvas.addEventListener('pointermove', e => {
     ctx.moveTo(last.x, last.y);
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
+
     last = p;
   }
 
   hasDrawing = true;
 });
 
-function stop() {
+function stopDrawing() {
   drawing = false;
   last = null;
 }
 
-canvas.addEventListener('pointerup', stop);
-canvas.addEventListener('pointercancel', stop);
+canvas.addEventListener('pointerup', stopDrawing);
+canvas.addEventListener('pointercancel', stopDrawing);
 
 brush.addEventListener('input', () => {
   $('brushValue').textContent = brush.value + ' پیکسل';
@@ -386,11 +312,25 @@ $('eraserTool').onclick = () => {
   erasing = true;
 };
 
+function isCanvasBlank() {
+  if (!canvas.width || !canvas.height) return true;
+
+  const pixels = ctx.getImageData(
+    0, 0, canvas.width, canvas.height
+  ).data;
+
+  for (let i = 3; i < pixels.length; i += 4) {
+    if (pixels[i] !== 0) return false;
+  }
+
+  return true;
+}
+
 $('undoCanvas').onclick = () => {
   if (!undoStack.length) return;
 
   ctx.putImageData(undoStack.pop(), 0, 0);
-  hasDrawing = undoStack.length > 0;
+  hasDrawing = !isCanvasBlank();
 };
 
 $('clearCanvas').onclick = () => {
@@ -406,7 +346,7 @@ document.querySelectorAll('.color-dot').forEach(btn => {
   });
 });
 
-// ارسال واقعی نامه به Supabase
+// ارسال نامه به Supabase
 form.addEventListener('submit', async e => {
   e.preventDefault();
 
@@ -420,7 +360,11 @@ form.addEventListener('submit', async e => {
     return;
   }
 
-  if (sender.length > 60 || text.length > 12000 || n > 1000) {
+  if (
+    sender.length > 60 ||
+    text.length > 12000 ||
+    n > 1000
+  ) {
     alert('طول اسم یا نامه بیشتر از حد مجاز است.');
     return;
   }
@@ -462,11 +406,14 @@ form.addEventListener('submit', async e => {
     if (!response.ok) {
       const error = await response.text();
       console.error('Supabase error:', error);
-      throw new Error('ارسال نامه انجام نشد.');
+      throw new Error(error);
     }
 
     $('formView').style.display = 'none';
     $('successView').style.display = 'block';
+
+    $('successView').querySelector('p').innerHTML =
+      'نامه‌ات با موفقیت به صندوق اصلی رسید.<br>ممنون که تکه‌ای از دنیایت را اینجا گذاشتی.';
 
   } catch (error) {
     console.error(error);
@@ -480,8 +427,11 @@ form.addEventListener('submit', async e => {
 // نوشتن نامه جدید
 $('writeAgain').onclick = () => {
   form.reset();
+
   count.textContent = '۰ / ۱۰۰۰ کلمه';
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
   hasDrawing = false;
   erasing = false;
   undoStack = [];
@@ -490,16 +440,21 @@ $('writeAgain').onclick = () => {
   $('formView').style.display = 'block';
 };
 
-// نامه‌ها فقط از پنل مدیر قابل مشاهده‌اند
+// مشاهده پیام راهنمای صندوق
 $('inboxToggle').onclick = () => {
   const box = $('letters');
   box.replaceChildren();
 
   const p = document.createElement('p');
-  p.textContent = 'نامه‌ها با موفقیت در صندوق اصلی ذخیره می‌شوند. برای مشاهده آن‌ها وارد پنل مدیر شوید.';
+
+  p.textContent =
+    'نامه‌ها در صندوق اصلی ذخیره می‌شوند. برای مشاهده آن‌ها وارد پنل مدیر شوید.';
+
   box.append(p);
 
   $('inbox').style.display =
-    $('inbox').style.display === 'block' ? 'none' : 'block';
+    $('inbox').style.display === 'block'
+      ? 'none'
+      : 'block';
 };
-
+</script>
