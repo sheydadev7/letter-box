@@ -229,6 +229,277 @@ $('inboxToggle').onclick=()=>{
  });
  $('inbox').style.display=$('inbox').style.display==='block'?'none':'block';
 };
-</script>
-</body>
-</html>
+
+import {
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY
+} from './Config.js';
+
+const $ = id => document.getElementById(id);
+
+const form = $('letterForm');
+const message = $('message');
+const count = $('count');
+const card = $('formCard');
+const stage = $('stage');
+
+function words(t) {
+  return t.trim() ? t.trim().split(/\s+/).length : 0;
+}
+
+// شمارش کلمات
+message.addEventListener('input', () => {
+  const n = words(message.value);
+  count.textContent = n + ' / ۱۰۰۰ کلمه';
+  count.style.color = n > 1000 ? '#b34f65' : '';
+});
+
+// باز کردن پاکت
+$('openEnvelope').addEventListener('click', () => {
+  const btn = $('openEnvelope');
+  if (btn.classList.contains('open')) return;
+
+  btn.classList.add('open');
+  $('openHint').textContent = '✧ یک نامه منتظر توست ✧';
+
+  setTimeout(() => {
+    stage.style.display = 'none';
+    card.classList.add('show');
+    card.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }, 1050);
+});
+
+// ابزار نقاشی
+const canvas = $('drawingCanvas');
+const ctx = canvas.getContext('2d');
+const color = $('penColor');
+const brush = $('brushSize');
+
+let drawing = false;
+let hasDrawing = false;
+let erasing = false;
+let last = null;
+let undoStack = [];
+
+function saveUndo() {
+  if (undoStack.length > 15) undoStack.shift();
+  undoStack.push(
+    ctx.getImageData(0, 0, canvas.width, canvas.height)
+  );
+}
+
+function resizeCanvas() {
+  const snap = hasDrawing ? canvas.toDataURL() : null;
+  const rect = canvas.getBoundingClientRect();
+  const ratio = window.devicePixelRatio || 1;
+
+  canvas.width = Math.round(rect.width * ratio);
+  canvas.height = Math.round(250 * ratio);
+
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  if (snap) {
+    const img = new Image();
+    img.onload = () => ctx.drawImage(img, 0, 0, rect.width, 250);
+    img.src = snap;
+  }
+}
+
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function point(e) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: e.clientX - r.left,
+    y: e.clientY - r.top
+  };
+}
+
+canvas.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  drawing = true;
+  last = point(e);
+  saveUndo();
+  canvas.setPointerCapture(e.pointerId);
+
+  ctx.fillStyle = erasing ? '#fffdf8' : color.value;
+  ctx.beginPath();
+  ctx.arc(
+    last.x,
+    last.y,
+    (erasing ? Math.max(brush.value * 2, 16) : Number(brush.value)) / 2,
+    0,
+    Math.PI * 2
+  );
+  ctx.fill();
+  hasDrawing = true;
+});
+
+canvas.addEventListener('pointermove', e => {
+  if (!drawing) return;
+  e.preventDefault();
+
+  const events = e.getCoalescedEvents
+    ? e.getCoalescedEvents()
+    : [e];
+
+  for (const ev of events) {
+    const p = point(ev);
+    ctx.strokeStyle = erasing ? '#fffdf8' : color.value;
+    ctx.lineWidth = erasing
+      ? Math.max(Number(brush.value) * 3, 20)
+      : Number(brush.value);
+
+    ctx.beginPath();
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    last = p;
+  }
+
+  hasDrawing = true;
+});
+
+function stop() {
+  drawing = false;
+  last = null;
+}
+
+canvas.addEventListener('pointerup', stop);
+canvas.addEventListener('pointercancel', stop);
+
+brush.addEventListener('input', () => {
+  $('brushValue').textContent = brush.value + ' پیکسل';
+});
+
+$('penTool').onclick = () => {
+  erasing = false;
+};
+
+$('eraserTool').onclick = () => {
+  erasing = true;
+};
+
+$('undoCanvas').onclick = () => {
+  if (!undoStack.length) return;
+
+  ctx.putImageData(undoStack.pop(), 0, 0);
+  hasDrawing = undoStack.length > 0;
+};
+
+$('clearCanvas').onclick = () => {
+  saveUndo();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  hasDrawing = false;
+};
+
+document.querySelectorAll('.color-dot').forEach(btn => {
+  btn.addEventListener('click', () => {
+    color.value = btn.dataset.color;
+    erasing = false;
+  });
+});
+
+// ارسال واقعی نامه به Supabase
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+
+  const sender = $('sender').value.trim();
+  const text = message.value.trim();
+  const n = words(text);
+  const sendButton = form.querySelector('.send');
+
+  if (!sender || !text) {
+    alert('لطفاً اسم و متن نامه را وارد کن.');
+    return;
+  }
+
+  if (sender.length > 60 || text.length > 12000 || n > 1000) {
+    alert('طول اسم یا نامه بیشتر از حد مجاز است.');
+    return;
+  }
+
+  let drawingData = null;
+
+  if (hasDrawing) {
+    drawingData = canvas.toDataURL('image/png');
+
+    if (drawingData.length >= 1500000) {
+      alert('نقاشی کمی بزرگ است. لطفاً نقاشی ساده‌تری بکش.');
+      return;
+    }
+  }
+
+  sendButton.disabled = true;
+  sendButton.textContent = 'در حال فرستادن نامه...';
+
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/letters`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          name: sender,
+          message: text,
+          drawing_data: drawingData,
+          word_count: n
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('Supabase error:', error);
+      throw new Error('ارسال نامه انجام نشد.');
+    }
+
+    $('formView').style.display = 'none';
+    $('successView').style.display = 'block';
+
+  } catch (error) {
+    console.error(error);
+    alert('ارسال نامه ناموفق بود. لطفاً دوباره امتحان کن.');
+  } finally {
+    sendButton.disabled = false;
+    sendButton.textContent = 'مهر کن و نامه را بفرست ♡';
+  }
+});
+
+// نوشتن نامه جدید
+$('writeAgain').onclick = () => {
+  form.reset();
+  count.textContent = '۰ / ۱۰۰۰ کلمه';
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  hasDrawing = false;
+  erasing = false;
+  undoStack = [];
+
+  $('successView').style.display = 'none';
+  $('formView').style.display = 'block';
+};
+
+// نامه‌ها فقط از پنل مدیر قابل مشاهده‌اند
+$('inboxToggle').onclick = () => {
+  const box = $('letters');
+  box.replaceChildren();
+
+  const p = document.createElement('p');
+  p.textContent = 'نامه‌ها با موفقیت در صندوق اصلی ذخیره می‌شوند. برای مشاهده آن‌ها وارد پنل مدیر شوید.';
+  box.append(p);
+
+  $('inbox').style.display =
+    $('inbox').style.display === 'block' ? 'none' : 'block';
+};
+
