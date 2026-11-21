@@ -1,7 +1,15 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './Config.js';
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+import {
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY
+} from './Config.js';
+
+const supabase = createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY
+);
 
 const loginForm = document.getElementById('loginForm');
 const status = document.getElementById('status');
@@ -28,14 +36,17 @@ async function loadLetters() {
 
   lettersBox.replaceChildren();
 
-  data.forEach((letter) => {
+  data.forEach(letter => {
     const card = document.createElement('article');
-    card.style.cssText = 'background:#fff;border:1px solid #eadbd4;border-radius:12px;padding:16px;margin-top:14px;white-space:pre-wrap;text-align:right;';
+
+    card.style.cssText =
+      'background:#fff;border:1px solid #eadbd4;border-radius:12px;padding:16px;margin-top:14px;text-align:right;';
 
     const sender = document.createElement('strong');
     sender.textContent = letter.name || 'ناشناس';
 
     const message = document.createElement('p');
+    message.style.whiteSpace = 'pre-wrap';
     message.textContent = letter.message || '';
 
     const date = document.createElement('small');
@@ -44,11 +55,28 @@ async function loadLetters() {
       : '';
 
     card.append(sender, message, date);
+
+    // نمایش نقاشی
+    if (letter.drawing_data) {
+      const drawingTitle = document.createElement('p');
+      drawingTitle.textContent = 'نقاشی پیوست‌شده ✧';
+      drawingTitle.style.cssText =
+        'margin-top:18px;color:#9b716a;font-size:13px;';
+
+      const drawing = document.createElement('img');
+      drawing.src = letter.drawing_data;
+      drawing.alt = 'نقاشی فرستنده';
+      drawing.style.cssText =
+        'display:block;max-width:100%;max-height:350px;object-fit:contain;border:1px solid #eadbd4;border-radius:8px;margin-top:8px;background:#fffdf8;';
+
+      card.append(drawingTitle, drawing);
+    }
+
     lettersBox.append(card);
   });
 }
 
-loginForm.addEventListener('submit', async (event) => {
+loginForm.addEventListener('submit', async event => {
   event.preventDefault();
 
   status.textContent = 'در حال ورود...';
@@ -69,14 +97,17 @@ loginForm.addEventListener('submit', async (event) => {
 
   loginForm.hidden = true;
   logoutButton.hidden = false;
+
   await loadLetters();
 });
 
 logoutButton.addEventListener('click', async () => {
   await supabase.auth.signOut();
+
   loginForm.hidden = false;
   logoutButton.hidden = true;
   lettersBox.replaceChildren();
+
   status.textContent = 'از حساب خارج شدی.';
 });
 
