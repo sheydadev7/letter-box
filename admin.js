@@ -16,6 +16,30 @@ const status = document.getElementById('status');
 const lettersBox = document.getElementById('letters');
 const logoutButton = document.getElementById('logout');
 
+async function deleteLetter(id, button) {
+  const confirmed = confirm('از حذف این نامه مطمئنی؟');
+
+  if (!confirmed) return;
+
+  button.disabled = true;
+  button.textContent = 'در حال حذف...';
+
+  const { error } = await supabase
+    .from('letters')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error(error);
+    alert('حذف نامه انجام نشد. دوباره امتحان کن.');
+    button.disabled = false;
+    button.textContent = 'حذف نامه';
+    return;
+  }
+
+  await loadLetters();
+}
+
 async function loadLetters() {
   status.textContent = 'در حال دریافت نامه‌ها...';
 
@@ -56,7 +80,6 @@ async function loadLetters() {
 
     card.append(sender, message, date);
 
-    // نمایش نقاشی
     if (letter.drawing_data) {
       const drawingTitle = document.createElement('p');
       drawingTitle.textContent = 'نقاشی پیوست‌شده ✧';
@@ -72,6 +95,17 @@ async function loadLetters() {
       card.append(drawingTitle, drawing);
     }
 
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.textContent = 'حذف نامه';
+    deleteButton.style.cssText =
+      'display:block;width:100%;margin-top:18px;padding:12px;border:0;border-radius:8px;background:#b9877e;color:white;font-size:15px;cursor:pointer;';
+
+    deleteButton.addEventListener('click', () => {
+      deleteLetter(letter.id, deleteButton);
+    });
+
+    card.append(deleteButton);
     lettersBox.append(card);
   });
 }
